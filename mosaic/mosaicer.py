@@ -3,16 +3,19 @@ import os
 from PIL import Image
 from multiprocessing import Process, Queue, cpu_count
 import urllib2
+from tempfile import NamedTemporaryFile
+from time import sleep
 
 # Change these 3 config parameters to suit your needs...
-TILE_SIZE      = 50        # height/width of mosaic tiles in pixels
-TILE_MATCH_RES = 5        # tile matching resolution (higher values give better fit but require more processing)
-ENLARGEMENT    = 8        # the mosaic image will be this many times wider and taller than the original
+TILE_SIZE      = 25        # height/width of mosaic tiles in pixels
+TILE_MATCH_RES = 10        # tile matching resolution (higher values give better fit but require more processing)
+ENLARGEMENT    = 15        # the mosaic image will be this many times wider and taller than the original
 
 TILE_BLOCK_SIZE = TILE_SIZE / max(min(TILE_MATCH_RES, TILE_SIZE), 1)
 WORKER_COUNT = max(cpu_count() - 1, 1)
-OUT_FILE = ''
+OUT_FILE = NamedTemporaryFile()
 EOQ_VALUE = None
+DONE = False
 
 class TileProcessor:
     def __init__(self, tiles_array):
@@ -45,6 +48,7 @@ class TileProcessor:
 
         # search the tiles directory recursively
         for tile_path in self.tiles_array:
+            print(len(large_tiles))
             large_tile, small_tile = self.__process_tile(tile_path)
             if large_tile:
                 large_tiles.append(large_tile)
@@ -149,7 +153,7 @@ class MosaicImage:
         self.image.paste(img, coords)
 
     def save(self):
-        self.image.save('./tmp.jpg')
+        self.image.save(OUT_FILE, "PNG")
 
 def build_mosaic(result_queue, all_tile_data_large, original_img_large):
     mosaic = MosaicImage(original_img_large)
@@ -214,6 +218,7 @@ def get_mosaic(img_path, tiles_path):
     tiles_data = TileProcessor(tiles_path).get_tiles()
     image_data = TargetImage(img_path).get_data()
     compose(image_data, tiles_data)
+    return OUT_FILE
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
